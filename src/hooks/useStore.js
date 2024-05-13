@@ -4,13 +4,14 @@ import {
 	SORT_INDEX,
 } from '../utils/constants';
 import { useState, useEffect } from 'react';
+import {ref, onValue, push, set, remove} from 'firebase/database';
+import {db} from '../firebase';
 
 export const useStore = () => {
 	const [formData, setFormData] = useState(INITIAL_FORM_STATE);
 	const [todoList, setTodoList] = useState([]);
 	const [searchState, setSearchState] = useState(false);
-	const [isLoading, setIsLoading] = useState(false);
-	const [refreshTodoListFlag, setRefreshTodoListFlag] = useState(false);
+	const [isLoading, setIsLoading] = useState(true);
 	const [updatedItem, setUpdatedItem] = useState({});
 	const [needUpdate, setNeedUpdate] = useState(false);
 	const [isCreated, setIsCreated] = useState(false);
@@ -23,78 +24,82 @@ export const useStore = () => {
 		return list;
 	};
 
+	const responseToArray = (obj) => {
+		let result = [];
+		for (const [key, value] of Object.entries(obj)) {
+			result.push({
+				id: key,
+				text: value.text});
+		}
+		return result;
+	};
+
 	const loaderStatus = () => {
 		return isLoading || isCreated || isDeleted || isUpdated;
 	};
 
 	const postData = (data) => {
 		setIsCreated(true);
-		fetch('http://localhost:3005/todos', {
-			method: 'POST',
-			headers: { 'Content-Type': 'application/json;charset=utf-8' },
-			body: JSON.stringify({
-				text: data,
-			}),
+		const todoListDbRef = ref(db, 'todos');
+
+		push(todoListDbRef, {
+			text: data,
 		})
-			.then((rawResponse) => rawResponse.json())
-			.then((response) => {
-				updatingList();
-			});
+		.then((response) => {
+			setIsCreated(false);
+			console.log('измение данных');
+		});
 	};
 
 	const deleteData = (id) => {
 		setIsDeleted(true);
-		fetch('http://localhost:3005/todos/' + id, {
-			method: 'DELETE',
+
+		const itemDbRef = ref(db, 'todos/' + id);
+
+		remove(itemDbRef)
+		.then((response) => {
+			console.log(response);
 		})
-			.then((rawResponse) => rawResponse.json())
-			.then((response) => {
-				updatingList();
-			})
-			.finally(() => setIsDeleted(false));
+		.finally(() => setIsDeleted(false));
 	};
 
-	const updatingList = () => setRefreshTodoListFlag(!refreshTodoListFlag);
+	const getTodoList = () => {
+		const todoListDbRef = ref(db, 'todos');
+		return onValue(todoListDbRef, (snapshot) => {
+				let loadedTodos = snapshot.val() || {};
+				loadedTodos = responseToArray(loadedTodos);
+				setTodoList(loadedTodos);
+				setIsLoading(false);
+			});
+	};
 
 	useEffect(() => {
-		setIsLoading(true);
-		fetch('http://localhost:3005/todos')
-			.then((loadedData) => loadedData.json())
-			.then((loadedTodos) => {
-				if (loadedTodos) {
-					console.log(sortStatus);
-					loadedTodos = sortList(loadedTodos, SORT_INDEX[sortStatus]);
-				}
-				if (searchState) {
-					searchTask(formData.task, loadedTodos);
-				}
-				else {
-					setTodoList(loadedTodos);
-				}
-			})
-			.finally(() => {
-				setIsLoading(false);
-				setIsCreated(false);
-			});
-	}, [refreshTodoListFlag, sortStatus, searchState]);
+		return getTodoList();
+		},[]);
+
+	useEffect(() => {
+		let loadedTodos = [...todoList];
+		loadedTodos = sortList(loadedTodos, SORT_INDEX[sortStatus]);
+		console.log(sortStatus)
+		if (searchState && sortStatus !== 'DEFAULT') {
+			searchTask(formData.task, loadedTodos);
+		}
+		else {
+			getTodoList();
+		}
+	}, [sortStatus, searchState]);
 
 	useEffect(() => {
 		if (!updatedItem.id) return;
 		setIsUpdated(true);
-		fetch('http://localhost:3005/todos/' + updatedItem.id, {
-			method: 'PUT',
-			headers: { 'Content-Type': 'application/json;charset=utf-8' },
-			body: JSON.stringify({
-				text: updatedItem.text,
-			}),
+		const itemDbRef = ref(db, 'todos/' + updatedItem.id);
+
+		set(itemDbRef, {
+			text: updatedItem.text,
 		})
-			.then((rawResponse) => rawResponse.json())
-			.then((response) => {
-				updatingList();
-			})
-			.finally(() => {
-				setIsUpdated(false);
-			});
+		.then((response) => {
+			setIsUpdated(false);
+		});
 	}, [needUpdate]);
 
 	const addTask = (event) => {

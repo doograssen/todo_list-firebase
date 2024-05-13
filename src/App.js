@@ -29,7 +29,7 @@ export const App = () => {
 							<div className="loader"></div>
 						) }
 							<ul className="app-list">
-								{getList().map(({ id, text }) => (
+								{getList().map(({id,text}) => (
 									<Task
 										key={'task-' + id}
 										id={id}
