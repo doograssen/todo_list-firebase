@@ -47,7 +47,6 @@ export const useStore = () => {
 		})
 		.then((response) => {
 			setIsCreated(false);
-			console.log('измение данных');
 		});
 	};
 
@@ -68,7 +67,13 @@ export const useStore = () => {
 		return onValue(todoListDbRef, (snapshot) => {
 				let loadedTodos = snapshot.val() || {};
 				loadedTodos = responseToArray(loadedTodos);
-				setTodoList(loadedTodos);
+				loadedTodos = sortList(loadedTodos, SORT_INDEX[sortStatus]);
+				if (searchState) {
+					searchTask(formData.task, loadedTodos);
+				}
+				else {
+					setTodoList(loadedTodos);
+				}
 				setIsLoading(false);
 			});
 	};
@@ -80,7 +85,6 @@ export const useStore = () => {
 	useEffect(() => {
 		let loadedTodos = [...todoList];
 		loadedTodos = sortList(loadedTodos, SORT_INDEX[sortStatus]);
-		console.log(sortStatus)
 		if (searchState && sortStatus !== 'DEFAULT') {
 			searchTask(formData.task, loadedTodos);
 		}
@@ -93,7 +97,6 @@ export const useStore = () => {
 		if (!updatedItem.id) return;
 		setIsUpdated(true);
 		const itemDbRef = ref(db, 'todos/' + updatedItem.id);
-
 		set(itemDbRef, {
 			text: updatedItem.text,
 		})
