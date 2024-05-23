@@ -10,7 +10,7 @@ export const App = () => {
 	return (
 		<div className="app">
 			<main className="app-main">
-				<h1 className="app-title">ToDo List (JSON Server)</h1>
+				<h1 className="app-title">ToDo List (Firebase)</h1>
 				<div className="app-container">
 					<TaskForm
 						data={form.getData()}
